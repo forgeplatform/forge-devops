@@ -1,0 +1,345 @@
+### This file is generated from
+### tools/ansible/roles/dockerfile/templates/Dockerfile.ubuntu.j2
+###
+### DO NOT EDIT
+###
+
+{% if not (build_dev|bool) and not (kube_dev|bool) and not (headless|bool) %}
+# UI builder stage - builds Forge UI frontend
+FROM ubuntu:24.04 as ui-builder
+
+USER root
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y nodejs npm && \
+    npm install -g n && n 20 && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+COPY . /tmp/src/
+WORKDIR /tmp/src/forge/ui_next
+RUN npm ci && npm run build
+{% endif %}
+
+# Build container
+FROM ubuntu:24.04 as builder
+
+ENV LANG en_US.UTF-8
+ENV LANGUAGE en_US:en
+ENV LC_ALL en_US.UTF-8
+ENV AWX_LOGGING_MODE stdout
+ENV DEBIAN_FRONTEND=noninteractive
+
+USER root
+
+# Generate locale
+RUN apt-get update && apt-get install -y locales && \
+    locale-gen en_US.UTF-8 && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    iputils-ping \
+    gcc \
+    g++ \
+    git \
+    gettext \
+    libffi-dev \
+    libltdl-dev \
+    make \
+    libnss3 \
+    libldap2-dev \
+    libsasl2-dev \
+    openssl \
+    patch \
+    postgresql-client \
+    libpq-dev \
+    python3.12 \
+    python3.12-dev \
+    python3.12-venv \
+    python3-pip \
+    python3-setuptools \
+    python3-packaging \
+    python3-psycopg2 \
+    swig \
+    unzip \
+    pkg-config \
+    libxmlsec1-dev \
+    libxmlsec1-openssl && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install --break-system-packages -vv build
+
+{% if image_architecture == 'ppc64le'  %}
+    RUN apt-get update && apt-get install -y wget && \
+    wget https://static.rust-lang.org/dist/rust-1.41.0-powerpc64le-unknown-linux-gnu.tar.gz && \
+    tar -zxvf rust-1.41.0-powerpc64le-unknown-linux-gnu.tar.gz && \
+    cd rust-1.41.0-powerpc64le-unknown-linux-gnu && \
+    sh install.sh ;
+{% endif %}
+
+# Install & build requirements
+ADD Makefile /tmp/Makefile
+RUN mkdir /tmp/requirements
+ADD requirements/requirements.txt \
+    requirements/requirements_tower_uninstall.txt \
+    requirements/requirements_git.txt \
+    /tmp/requirements/
+
+RUN cd /tmp && make requirements_awx
+
+ARG VERSION
+ARG SETUPTOOLS_SCM_PRETEND_VERSION
+ARG HEADLESS
+
+{% if (build_dev|bool) or (kube_dev|bool) %}
+ADD requirements/requirements_dev.txt /tmp/requirements
+RUN cd /tmp && make requirements_awx_dev
+{% else %}
+# Copy source into builder, build sdist, install it into awx venv
+COPY . /tmp/src/
+WORKDIR /tmp/src/
+
+{% if not headless|bool %}
+# Copy pre-built UI assets from ui-builder stage
+COPY --from=ui-builder /tmp/src/forge/ui_next/build /tmp/src/forge/ui_next/build
+{% endif %}
+
+RUN HEADLESS=yes make sdist && \
+    rm -f dist/forge.tar.gz && \
+    /var/lib/awx/venv/awx/bin/pip install dist/forge-*.tar.gz
+
+{% if not headless|bool %}
+RUN DJANGO_SETTINGS_MODULE=forge.settings.defaults SKIP_SECRET_KEY_CHECK=yes SKIP_PG_VERSION_CHECK=yes /var/lib/awx/venv/awx/bin/forge-manage collectstatic --noinput --clear
+{% endif %}
+
+{% endif %}
+
+# Final container(s)
+FROM ubuntu:24.04
+
+ENV LANG en_US.UTF-8
+ENV LANGUAGE en_US:en
+ENV LC_ALL en_US.UTF-8
+ENV AWX_LOGGING_MODE stdout
+ENV DEBIAN_FRONTEND=noninteractive
+
+USER root
+
+# Generate locale
+RUN apt-get update && apt-get install -y locales && \
+    locale-gen en_US.UTF-8 && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install runtime requirements
+RUN apt-get update && apt-get install -y \
+    acl \
+    git \
+    git-lfs \
+    krb5-user \
+    nginx \
+    libldap2 \
+    openssl \
+    postgresql-client \
+    python3.12 \
+    python3.12-dev \
+    python3-pip \
+    python3-setuptools \
+    python3-packaging \
+    python3-psycopg2 \
+    rsync \
+    rsyslog \
+    subversion \
+    sudo \
+    vim-tiny \
+    unzip \
+    libxmlsec1-openssl && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install --break-system-packages -vv virtualenv supervisor dumb-init build
+
+RUN rm -rf /root/.cache && rm -rf /tmp/*
+
+{% if (build_dev|bool) or (kube_dev|bool) %}
+# Install development/test requirements
+RUN apt-get update && apt-get install -y \
+    crun \
+    gdb \
+    libgtk-3-0 \
+    gettext \
+    hostname \
+    procps \
+    libasound2t64 \
+    libxcb1 \
+    libxss1 \
+    iproute2 \
+    strace \
+    vim \
+    ncat \
+    libpq-dev \
+    nodejs \
+    npm \
+    libnss3 \
+    make \
+    patch \
+    socat \
+    tmux \
+    wget \
+    diffutils \
+    unzip && \
+    npm install -g n && n 20 && hash -r && npm install -g npm@10 && apt-get remove -y nodejs && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install --break-system-packages -vv git+https://github.com/coderanger/supervisor-stdout.git@973ba19967cdaf46d9c1634d1675fc65b9574f6e
+RUN pip3 install --break-system-packages -vv black setuptools-scm build
+
+# This package randomly fails to download.
+# It is nice to have in the dev env, but not necessary.
+RUN apt-get update && apt-get install -y python3-dbg 2>/dev/null || true
+
+RUN apt-get update && apt-get install -y inotify-tools && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+{% endif %}
+
+# Copy app from builder
+COPY --from=builder /var/lib/awx /var/lib/awx
+
+RUN ln -s /var/lib/awx/venv/awx/bin/forge-manage /usr/bin/forge-manage
+
+COPY --from={{ receptor_image }} /usr/bin/receptor /usr/bin/receptor
+
+{%if build_dev|bool %}
+
+RUN openssl req -nodes -newkey rsa:2048 -keyout /etc/nginx/nginx.key -out /etc/nginx/nginx.csr \
+        -subj "/C=US/ST=North Carolina/L=Durham/O=Ansible/OU=Forge Development/CN=forge.localhost" && \
+    openssl x509 -req -days 365 -in /etc/nginx/nginx.csr -signkey /etc/nginx/nginx.key -out /etc/nginx/nginx.crt && \
+    chmod 640 /etc/nginx/nginx.csr /etc/nginx/nginx.key /etc/nginx/nginx.crt
+{% endif %}
+
+{% if build_dev|bool %}
+RUN apt-get update && apt-get install -y podman && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Adjust storage.conf to enable Fuse storage.
+RUN STORAGE_CONF=$(find /usr/share/containers /etc/containers -name storage.conf 2>/dev/null | head -1) && \
+    if [ -n "$STORAGE_CONF" ] && [ ! -f /etc/containers/storage.conf ]; then \
+      cp "$STORAGE_CONF" /etc/containers/storage.conf; \
+    fi && \
+    if [ -f /etc/containers/storage.conf ]; then \
+      sed -i -e 's|^#mount_program|mount_program|g' -e '/additionalimage.*/a "/var/lib/shared",' -e 's|^mountopt[[:space:]]*=.*$|mountopt = "nodev,fsync=0"|g' /etc/containers/storage.conf; \
+    fi
+
+ENV _CONTAINERS_USERNS_CONFIGURED=""
+
+# Ensure we must use fully qualified image names
+# This prevents podman prompt that hangs when trying to pull unqualified images
+RUN mkdir -p /etc/containers/registries.conf.d/ && echo "unqualified-search-registries = []" >> /etc/containers/registries.conf.d/force-fully-qualified-images.conf && chmod 644 /etc/containers/registries.conf.d/force-fully-qualified-images.conf
+{% endif %}
+
+ADD tools/ansible/roles/dockerfile/files/rsyslog.conf /var/lib/awx/rsyslog/rsyslog.conf
+ADD tools/ansible/roles/dockerfile/files/wait-for-migrations /usr/local/bin/wait-for-migrations
+ADD tools/ansible/roles/dockerfile/files/stop-supervisor /usr/local/bin/stop-supervisor
+
+ADD tools/ansible/roles/dockerfile/files/uwsgi.ini /etc/tower/uwsgi.ini
+
+## File mappings
+{% if build_dev|bool %}
+ADD tools/docker-compose/launch_awx.sh /usr/bin/launch_awx.sh
+ADD tools/docker-compose/start_tests.sh /start_tests.sh
+ADD tools/docker-compose/bootstrap_development.sh /usr/bin/bootstrap_development.sh
+ADD tools/docker-compose/entrypoint.sh /entrypoint.sh
+ADD tools/scripts/config-watcher /usr/bin/config-watcher
+{% elif kube_dev|bool %}
+RUN ln -sf /awx_devel/tools/ansible/roles/dockerfile/files/launch_awx_web.sh /usr/bin/launch_awx_web.sh
+RUN ln -sf /awx_devel/tools/ansible/roles/dockerfile/files/launch_awx_task.sh /usr/bin/launch_awx_task.sh
+RUN ln -sf /awx_devel/tools/ansible/roles/dockerfile/files/launch_awx_rsyslog.sh /usr/bin/launch_awx_rsyslog.sh
+RUN ln -sf /awx_devel/{{ template_dest }}/supervisor_web.conf /etc/supervisord_web.conf
+RUN ln -sf /awx_devel/{{ template_dest }}/supervisor_task.conf /etc/supervisord_task.conf
+RUN ln -sf /awx_devel/{{ template_dest }}/supervisor_rsyslog.conf /etc/supervisord_rsyslog.conf
+{% else %}
+ADD tools/ansible/roles/dockerfile/files/launch_awx_web.sh /usr/bin/launch_awx_web.sh
+ADD tools/ansible/roles/dockerfile/files/launch_awx_task.sh /usr/bin/launch_awx_task.sh
+ADD tools/ansible/roles/dockerfile/files/launch_awx_rsyslog.sh /usr/bin/launch_awx_rsyslog.sh
+ADD tools/scripts/rsyslog-4xx-recovery /usr/bin/rsyslog-4xx-recovery
+ADD {{ template_dest }}/supervisor_web.conf /etc/supervisord_web.conf
+ADD {{ template_dest }}/supervisor_task.conf /etc/supervisord_task.conf
+ADD {{ template_dest }}/supervisor_rsyslog.conf /etc/supervisord_rsyslog.conf
+ADD tools/scripts/awx-python /usr/bin/awx-python
+{% endif %}
+
+{% if (build_dev|bool) or (kube_dev|bool) %}
+RUN echo /awx_devel > /var/lib/awx/venv/awx/lib/python3.12/site-packages/forge.egg-link
+RUN echo /awx_devel > /var/lib/awx/venv/awx/lib/python3.12/site-packages/forge.pth
+RUN ln -sf /awx_devel/tools/docker-compose/forge-manage /usr/local/bin/forge-manage
+RUN ln -sf /awx_devel/tools/scripts/awx-python /usr/bin/awx-python
+RUN ln -sf /awx_devel/tools/scripts/rsyslog-4xx-recovery /usr/bin/rsyslog-4xx-recovery
+{% endif %}
+
+# Pre-create things we need to access
+RUN for dir in \
+      /var/lib/awx \
+      /var/lib/awx/rsyslog \
+      /var/lib/awx/rsyslog/conf.d \
+      /var/lib/awx/.local/share/containers/storage \
+      /var/run/awx-rsyslog \
+      /var/log/nginx \
+      /var/lib/pgsql \
+      /var/run/supervisor \
+      /var/run/awx-receptor \
+      /var/lib/nginx ; \
+    do mkdir -m 0775 -p $dir ; chmod g+rwx $dir ; chgrp root $dir ; done && \
+    for file in \
+      /etc/subuid \
+      /etc/subgid \
+      /etc/group \
+      /etc/passwd \
+      /var/lib/awx/rsyslog/rsyslog.conf ; \
+    do touch $file ; chmod g+rw $file ; chgrp root $file ; done
+
+{% if (build_dev|bool) or (kube_dev|bool) %}
+RUN for dir in \
+      /var/lib/awx/.local \
+      /var/lib/awx/venv \
+      /var/lib/awx/venv/awx/bin \
+      /var/lib/awx/venv/awx/lib/python3.12 \
+      /var/lib/awx/venv/awx/lib/python3.12/site-packages \
+      /var/lib/awx/projects \
+      /var/lib/awx/rsyslog \
+      /var/run/awx-rsyslog \
+      /.ansible \
+      /var/lib/shared/overlay-images \
+      /var/lib/shared/overlay-layers \
+      /var/lib/shared/vfs-images \
+      /var/lib/shared/vfs-layers \
+      /var/lib/awx/vendor ; \
+    do mkdir -m 0775 -p $dir ; chmod g+rwx $dir ; chgrp root $dir ; done && \
+    for file in \
+      /var/lib/shared/overlay-images/images.lock \
+      /var/lib/shared/overlay-layers/layers.lock \
+      /var/lib/shared/vfs-images/images.lock \
+      /var/lib/shared/vfs-layers/layers.lock \
+      /var/run/nginx.pid; \
+    do touch $file ; chmod g+rw $file ; done && \
+    echo "\setenv PAGER 'less -SXF'" > /var/lib/awx/.psqlrc
+{% endif %}
+
+{% if not build_dev|bool %}
+RUN ln -sf /dev/stdout /var/log/nginx/access.log && \
+    ln -sf /dev/stderr /var/log/nginx/error.log
+{% endif %}
+
+ENV HOME="/var/lib/awx"
+
+{% if build_dev|bool %}
+ENV PATH="/var/lib/awx/venv/awx/bin/:${PATH}"
+
+EXPOSE 8043 8013 8080 22
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["/bin/bash"]
+{% else %}
+USER 1000
+EXPOSE 8052
+
+ENTRYPOINT ["dumb-init", "--"]
+VOLUME /var/lib/nginx
+VOLUME /var/lib/awx/.local/share/containers
+{% endif %}

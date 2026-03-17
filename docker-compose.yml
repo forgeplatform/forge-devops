@@ -1,0 +1,176 @@
+x-forge-common: &forge-common
+  image: ${FORGE_IMAGE:-docker.io/forge-platform/forge}:${FORGE_TAG:-latest}
+  env_file: .env
+  environment: &forge-env
+    DATABASE_HOST: postgres
+    DATABASE_PORT: "5432"
+    DATABASE_USER: ${POSTGRES_USER:-forge}
+    DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+    DATABASE_NAME: ${POSTGRES_DB:-forge}
+    REDIS_HOST: redis
+    REDIS_PORT: "6379"
+    FORGE_SECRET_KEY: ${FORGE_SECRET_KEY}
+    FORGE_BROADCAST_WEBSOCKET_SECRET: ${FORGE_BROADCAST_WEBSOCKET_SECRET}
+    FORGE_ADMIN_USER: ${FORGE_ADMIN_USER:-admin}
+    FORGE_ADMIN_PASSWORD: ${FORGE_ADMIN_PASSWORD}
+    FORGE_ADMIN_EMAIL: ${FORGE_ADMIN_EMAIL:-admin@example.com}
+    FORGE_ALLOWED_HOSTS: ${FORGE_ALLOWED_HOSTS:-*}
+    FORGE_CSRF_TRUSTED_ORIGINS: ${FORGE_CSRF_TRUSTED_ORIGINS:-}
+    FORGE_NODE_NAME: ${FORGE_NODE_NAME:-forge-node}
+    FORGE_NODE_TYPE: ${FORGE_NODE_TYPE:-hybrid}
+  volumes: &forge-volumes
+    - ./settings/settings.py:/etc/tower/settings.py:ro
+    - ./settings/database.py:/etc/tower/conf.d/database.py:ro
+    - ./settings/redis_settings.py:/etc/tower/conf.d/redis_settings.py:ro
+    - ./settings/secret_key.py:/etc/tower/conf.d/secret_key.py:ro
+    - ./settings/websocket_secret.py:/etc/tower/conf.d/websocket_secret.py:ro
+    - ./settings/custom_settings.py:/etc/tower/conf.d/custom_settings.py:ro
+    - ./receptor/receptor.conf:/etc/receptor/receptor.conf:ro
+    - forge_projects:/var/lib/awx/projects
+    - forge_receptor:/var/run/awx-receptor
+  networks:
+    - forge
+
+services:
+  # ── Database ───────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-forge}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-forge}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - forge
+    healthcheck:
+      test: pg_isready -U ${POSTGRES_USER:-forge} -d ${POSTGRES_DB:-forge}
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Cache / Message Broker ─────────────────────────────
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - forge
+    healthcheck:
+      test: redis-cli ping | grep -q PONG
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── One-shot init (migrations, admin, provision) ───────
+  forge-init:
+    <<: *forge-common
+    command: /bin/bash /etc/forge/init.sh
+    volumes:
+      - ./settings/settings.py:/etc/tower/settings.py:ro
+      - ./settings/database.py:/etc/tower/conf.d/database.py:ro
+      - ./settings/redis_settings.py:/etc/tower/conf.d/redis_settings.py:ro
+      - ./settings/secret_key.py:/etc/tower/conf.d/secret_key.py:ro
+      - ./settings/websocket_secret.py:/etc/tower/conf.d/websocket_secret.py:ro
+      - ./settings/custom_settings.py:/etc/tower/conf.d/custom_settings.py:ro
+      - ./receptor/receptor.conf:/etc/receptor/receptor.conf:ro
+      - ./scripts/init.sh:/etc/forge/init.sh:ro
+      - forge_projects:/var/lib/awx/projects
+      - forge_receptor:/var/run/awx-receptor
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: "no"
+
+  # ── Web (nginx + uwsgi + daphne) ──────────────────────
+  forge-web:
+    <<: *forge-common
+    command: launch_awx_web.sh
+    volumes:
+      - ./settings/settings.py:/etc/tower/settings.py:ro
+      - ./settings/database.py:/etc/tower/conf.d/database.py:ro
+      - ./settings/redis_settings.py:/etc/tower/conf.d/redis_settings.py:ro
+      - ./settings/secret_key.py:/etc/tower/conf.d/secret_key.py:ro
+      - ./settings/websocket_secret.py:/etc/tower/conf.d/websocket_secret.py:ro
+      - ./settings/custom_settings.py:/etc/tower/conf.d/custom_settings.py:ro
+      - ./settings/nginx-internal.conf:/etc/nginx/nginx.conf:ro
+      - ./receptor/receptor.conf:/etc/receptor/receptor.conf:ro
+      - ./scripts/healthcheck-web.sh:/etc/forge/healthcheck-web.sh:ro
+      - forge_projects:/var/lib/awx/projects
+      - forge_receptor:/var/run/awx-receptor
+    depends_on:
+      forge-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: bash /etc/forge/healthcheck-web.sh
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+  # ── Task (dispatcher + callback receiver + wsrelay) ────
+  forge-task:
+    <<: *forge-common
+    command: launch_awx_task.sh
+    volumes:
+      - ./settings/settings.py:/etc/tower/settings.py:ro
+      - ./settings/database.py:/etc/tower/conf.d/database.py:ro
+      - ./settings/redis_settings.py:/etc/tower/conf.d/redis_settings.py:ro
+      - ./settings/secret_key.py:/etc/tower/conf.d/secret_key.py:ro
+      - ./settings/websocket_secret.py:/etc/tower/conf.d/websocket_secret.py:ro
+      - ./settings/custom_settings.py:/etc/tower/conf.d/custom_settings.py:ro
+      - ./receptor/receptor.conf:/etc/receptor/receptor.conf:ro
+      - ./scripts/healthcheck-task.sh:/etc/forge/healthcheck-task.sh:ro
+      - ./scripts/backup.sh:/etc/forge/backup.sh:ro
+      - ./scripts/restore.sh:/etc/forge/restore.sh:ro
+      - forge_projects:/var/lib/awx/projects
+      - forge_receptor:/var/run/awx-receptor
+      - forge_backups:/var/lib/awx/backups
+    depends_on:
+      forge-web:
+        condition: service_healthy
+    healthcheck:
+      test: bash /etc/forge/healthcheck-task.sh
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    restart: unless-stopped
+
+  # ── External nginx (TLS termination) ───────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    networks:
+      - forge
+    depends_on:
+      forge-web:
+        condition: service_healthy
+    healthcheck:
+      test: wget -qO /dev/null http://127.0.0.1:80/ || true
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  forge_projects:
+  forge_receptor:
+  forge_backups:
+
+networks:
+  forge:
+    driver: bridge

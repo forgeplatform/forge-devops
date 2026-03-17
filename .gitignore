@@ -1,0 +1,13 @@
+.env
+*.log
+*.pem
+*.key
+*.crt
+ssl/certs/
+!ssl/certs/.gitkeep
+.vagrant/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
