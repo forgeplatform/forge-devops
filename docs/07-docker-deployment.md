@@ -1,165 +1,122 @@
 # 07 — Docker & Deployment
 
-How to build, configure, and deploy Forge to production.
+How to build, configure, and deploy Forge Platform to production.
 
 ---
 
-## Development Setup (Vagrant)
+## Architecture
 
-**All development and testing runs inside the Vagrant VM. Never install dependencies on the host.**
+Forge Platform uses a separated architecture with independent Docker images:
 
-### Prerequisites
+| Service | Image | Purpose |
+|---------|-------|---------|
+| forge-web | `krlex/forge-backend` | Django API (uwsgi + daphne + nginx-internal) |
+| forge-task | `krlex/forge-backend` | Task execution (dispatcher, callback, receptor) |
+| forge-init | `krlex/forge-backend` | One-shot: migrations, admin user, provisioning |
+| forge-frontend | `krlex/forge-frontend` | React SPA served by nginx |
+| postgres | `postgres:15-alpine` | Database |
+| redis | `redis:7-alpine` | Cache and message broker |
+| nginx | `nginx:1.27-alpine` | TLS termination, routing |
 
-- VirtualBox 7+ or libvirt
-- Vagrant 2.4+
-- 8GB+ free RAM (VM uses 8GB)
+### Startup Order
 
-### Quick Start
-
-```bash
-vagrant up                # Start VM
-vagrant rsync             # Sync code to VM
-vagrant ssh               # Enter VM
-cd /awx_devel
-make Dockerfile           # Generate Dockerfile from Jinja2 template
-DOCKER_BUILDKIT=1 docker build -f Dockerfile \
-  --build-arg VERSION=2026.3.0 \
-  --build-arg SETUPTOOLS_SCM_PRETEND_VERSION=2026.3.0 \
-  -t forge-platform/forge:latest .
-
-cd tools/docker-compose-prod
-docker compose up -d
-
-# Access (from host browser):
-# HTTPS: https://localhost:8043
-# Login: admin / admin
+```
+postgres ──► redis ──► forge-init ──► forge-web ──► forge-task ──► nginx
+                                                     forge-frontend ──┘
 ```
 
-### Port Forwarding
+Each service waits for the previous one to be healthy before starting.
 
-| Guest | Host | Service |
-|-------|------|---------|
-| 8043 | 8043 | HTTPS (Nginx) |
-| 8080 | 8080 | HTTP (redirect) |
-| 8013 | 8013 | Direct web (no TLS) |
-| 5432 | 5433 | PostgreSQL |
+### Request Routing (External Nginx)
 
-### Useful Vagrant Commands
-
-```bash
-vagrant rsync-auto    # Auto-sync on file changes
-vagrant halt          # Stop VM (preserves data)
-vagrant destroy       # Delete VM (everything is lost)
-vagrant provision     # Re-run provision script
-```
-
-### Shell Aliases (inside VM)
-
-```bash
-forge-build    # Build Docker image
-forge-start    # docker compose up -d
-forge-stop     # docker compose down
-forge-logs     # docker compose logs -f
-forge-shell    # docker compose exec forge-web bash
-forge-test     # Run tests
-```
+| Path | Destination | Description |
+|------|-------------|-------------|
+| `/api/*` | forge-web:8013 | REST API |
+| `/sso/*` | forge-web:8013 | SSO/SAML/LDAP |
+| `/api/login/` | forge-web:8013 | Login (rate-limited) |
+| `/(api/)?websocket/` | forge-web:8013 | WebSocket (upgrade) |
+| `/*` (everything else) | forge-frontend:80 | React SPA |
 
 ---
 
-## Docker Image — Multi-Stage Build
+## Building Docker Images
 
-The Dockerfile is generated from a Jinja2 template: `tools/ansible/roles/dockerfile/templates/Dockerfile.j2`
+### Backend
 
-### 3 Build Stages
+```bash
+cd forge-backend
+docker build -t krlex/forge-backend:latest .
+docker push krlex/forge-backend:latest
+```
 
-| Stage | Base | What it does |
-|-------|------|-------------|
-| 1. ui-builder | Node 18 Alpine | `npm ci && npm run build` → static files |
-| 2. builder | CentOS Stream 9 | pip install dependencies, python setup.py sdist |
-| 3. runtime | CentOS Stream 9 | Minimal image with runtime dependencies only |
+The Dockerfile is a multi-stage build:
+1. **builder** (Ubuntu 24.04): installs Python deps, builds sdist, runs collectstatic
+2. **runtime** (Ubuntu 24.04): minimal image with runtime deps, receptor, supervisor
 
-### Watch out
+### Frontend
 
-- **Build takes ~10-15 minutes** the first time. With Docker cache, rebuilds are faster.
-- **`SETUPTOOLS_SCM_PRETEND_VERSION`** is a required build arg — without it, setuptools
-  tries to read the version from git which doesn't work inside the Docker context.
-- The image runs as a **non-root user (UID 1000)** — security best practice.
-- `dumb-init` is PID 1 — properly forwards signals to child processes.
+```bash
+cd forge-frontend
+docker build -t krlex/forge-frontend:latest .
+docker push krlex/forge-frontend:latest
+```
+
+The Dockerfile is a multi-stage build:
+1. **builder** (Node 20 Alpine): `npm ci && npm run build`
+2. **runtime** (nginx 1.27 Alpine): serves built assets with SPA fallback
 
 ---
 
 ## Production Deployment
 
-### File Structure
+### Prerequisites
 
-```
-tools/docker-compose-prod/
-├── docker-compose.yml      # 6 services
-├── .env.example            # Template for .env (COPY to .env)
-├── settings/               # Django settings for production
-│   ├── database.py         # PostgreSQL connection
-│   ├── redis_settings.py   # Redis connection
-│   ├── secret_key.py       # Django SECRET_KEY
-│   ├── custom_settings.py  # ALLOWED_HOSTS, CSRF, cookies
-│   └── nginx-internal.conf # Internal nginx routing
-├── nginx/
-│   ├── nginx.conf          # External nginx (TLS, rate limit)
-│   └── ssl/                # SSL certificates
-├── receptor/
-│   └── receptor.conf       # Receptor mesh config
-└── scripts/
-    ├── init.sh             # Migrations, admin user, provisioning
-    ├── healthcheck-web.sh  # Web container health check
-    ├── backup.sh           # Database backup
-    └── restore.sh          # Database restore
-```
+- Docker 24+ with Compose v2
+- 8GB+ RAM, 4+ CPU cores
+- Domain name with SSL certificate (or self-signed for testing)
 
-### Services and Startup Order
-
-```
-postgres ──► redis ──► forge-init ──► forge-web ──► forge-task ──► nginx
- (healthcheck)         (migrations,    (uwsgi,       (dispatcher,   (TLS,
-                        admin user,     daphne,       callback,      rate
-                        provisioning)   nginx-int)    wsrelay,       limit)
-                                                      receptor)
-```
-
-Each service waits for the previous one to be healthy before starting.
-
-### Step-by-Step Deployment
+### Quick Start
 
 ```bash
-cd tools/docker-compose-prod
+cd forge-deploy
 
 # 1. Create configuration
 cp .env.example .env
+# Edit .env — set all REQUIRED values (see below)
 
-# 2. Set REQUIRED values in .env:
-#    POSTGRES_PASSWORD=<strong password>
-#    FORGE_SECRET_KEY=<openssl rand -base64 32>
-#    FORGE_BROADCAST_WEBSOCKET_SECRET=<openssl rand -base64 32>
-#    FORGE_ADMIN_PASSWORD=<strong admin password>
-#    FORGE_CSRF_TRUSTED_ORIGINS=https://forge.example.com
+# 2. SSL certificates
+mkdir -p nginx/ssl
 
-# 3. SSL certificates
-# Let's Encrypt:
+# Let's Encrypt (production):
 certbot certonly --standalone -d forge.example.com
 cp /etc/letsencrypt/live/forge.example.com/fullchain.pem nginx/ssl/
 cp /etc/letsencrypt/live/forge.example.com/privkey.pem nginx/ssl/
 
-# Or self-signed (for testing):
+# Or self-signed (testing):
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
   -keyout nginx/ssl/privkey.pem -out nginx/ssl/fullchain.pem \
   -subj "/CN=forge.example.com"
 
-# 4. Deploy
+# 3. Deploy
 docker compose up -d
 
-# 5. Watch initialization
+# 4. Watch initialization
 docker compose logs -f forge-init
 
-# 6. Verify
+# 5. Verify
 curl -k https://forge.example.com/api/v2/ping/
+```
+
+### Deploy in Vagrant (testing)
+
+```bash
+cd forge-deploy
+vagrant up          # Ubuntu 24.04 VM + Docker + Compose + SSL + .env auto-generated
+vagrant ssh
+cd /forge-deploy
+docker compose up -d
+
+# Access from host: https://192.168.56.22/
 ```
 
 ---
@@ -170,10 +127,10 @@ curl -k https://forge.example.com/api/v2/ping/
 
 | Variable | Description | Generate with... |
 |----------|-------------|-----------------|
-| `POSTGRES_PASSWORD` | DB password | `openssl rand -base64 24` |
-| `FORGE_SECRET_KEY` | Django crypto key | `openssl rand -base64 32` |
-| `FORGE_BROADCAST_WEBSOCKET_SECRET` | WS auth secret | `openssl rand -base64 32` |
-| `FORGE_ADMIN_PASSWORD` | Admin password | Manually — strong password |
+| `POSTGRES_PASSWORD` | DB password | `openssl rand -hex 16` |
+| `FORGE_SECRET_KEY` | Django crypto key | `openssl rand -hex 32` |
+| `FORGE_BROADCAST_WEBSOCKET_SECRET` | WS auth secret | `openssl rand -hex 32` |
+| `FORGE_ADMIN_PASSWORD` | Admin password | Strong password |
 | `FORGE_CSRF_TRUSTED_ORIGINS` | CSRF origins | `https://forge.example.com` |
 
 ### Optional
@@ -181,7 +138,14 @@ curl -k https://forge.example.com/api/v2/ping/
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `FORGE_ALLOWED_HOSTS` | `*` | Allowed HTTP hosts |
+| `FORGE_ADMIN_USER` | `admin` | Admin username |
+| `FORGE_ADMIN_EMAIL` | `admin@example.com` | Admin email |
+| `FORGE_NODE_NAME` | `forge-node` | Instance hostname |
 | `FORGE_NODE_TYPE` | `hybrid` | `hybrid`, `control`, or `execution` |
+| `FORGE_BACKEND_IMAGE` | `krlex/forge-backend` | Backend Docker image |
+| `FORGE_FRONTEND_IMAGE` | `krlex/forge-frontend` | Frontend Docker image |
+| `FORGE_TAG` | `latest` | Image tag |
+| `NGINX_HTTP_PORT` | `80` | External HTTP port |
 | `NGINX_HTTPS_PORT` | `443` | External HTTPS port |
 
 ### Watch out
@@ -203,62 +167,58 @@ certbot certonly --standalone -d forge.example.com
 cp /etc/letsencrypt/live/forge.example.com/{fullchain,privkey}.pem nginx/ssl/
 ```
 
-Auto-renewal (add to crontab):
+Auto-renewal (crontab):
 ```bash
 0 0 1 * * certbot renew && cp /etc/letsencrypt/live/forge.example.com/*.pem /path/to/nginx/ssl/ && docker compose restart nginx
 ```
 
-### Watch out
+### Security Notes
 
-- Nginx is configured for **TLS 1.2 and 1.3** — older versions are disabled.
-- **HSTS** header is enabled — the browser will remember that the site uses HTTPS.
-- **Rate limiting** on `/api/login/` — 5 requests/second (brute force protection).
-- `client_max_body_size` is **50MB** — for uploading projects/playbooks.
+- Nginx is configured for **TLS 1.2 and 1.3** — older versions are disabled
+- **HSTS** header is enabled (63072000 seconds)
+- **Rate limiting** on `/api/login/` — 5 requests/second, burst 10
+- `client_max_body_size` is **50MB**
 
 ---
 
 ## Backup & Restore
 
-### Automated backup
+### Backup
 
 ```bash
-# Run backup (output: /var/lib/awx/backups/forge_backup_TIMESTAMP.sql.gz)
 docker compose exec forge-task bash /etc/forge/backup.sh
 
-# With custom retention (30 days instead of default 7)
+# With custom retention (30 days)
 docker compose exec forge-task bash /etc/forge/backup.sh 30
 ```
 
-### Scheduled backup (crontab on host)
+### Scheduled backup (crontab)
 
 ```bash
-0 2 * * * cd /path/to/docker-compose-prod && docker compose exec -T forge-task bash /etc/forge/backup.sh
+0 2 * * * cd /path/to/forge-deploy && docker compose exec -T forge-task bash /etc/forge/backup.sh
 ```
 
 ### Restore
 
 ```bash
 docker compose stop forge-web forge-task
-gunzip -c forge_backup_20260310.sql.gz | docker compose exec -T postgres psql -U forge forge
+gunzip -c forge_backup_20260317.sql.gz | docker compose exec -T postgres psql -U forge forge
 docker compose start forge-web forge-task
 ```
-
-### Watch out
-
-- Backup contains **only the database**. Projects (git repos) are synced automatically from SCM.
-- **Credentials are encrypted in the database** with `FORGE_SECRET_KEY`. Without the same key,
-  a restore won't decrypt credentials.
 
 ---
 
 ## Health Checks
 
 ```bash
-# Ping (no authentication required)
-curl https://forge.example.com/api/v2/ping/
+# API ping (no auth)
+curl -k https://forge.example.com/api/v2/ping/
 
-# Instance capacity
-curl -u admin:password https://forge.example.com/api/v2/instances/
+# Instance capacity (auth required)
+curl -k -u admin:password https://forge.example.com/api/v2/instances/
+
+# Service status
+docker compose ps
 
 # Supervisor processes
 docker compose exec forge-web supervisorctl status
@@ -273,40 +233,59 @@ docker compose exec forge-task supervisorctl status
 
 ```bash
 docker compose logs forge-init    # Check migrations and init
-# "database does not exist" → POSTGRES_DB doesn't match
-# "authentication failed" → POSTGRES_PASSWORD doesn't match
+# "database does not exist" → POSTGRES_DB mismatch
+# "authentication failed" → POSTGRES_PASSWORD mismatch
 ```
 
-### Can't log in
+### Can't log in (403 CSRF)
 
 ```bash
-# CSRF error (403)?
-# → Check FORGE_CSRF_TRUSTED_ORIGINS (must be full URL with https://)
-
-# Cookie not being sent?
-# → Check SESSION_COOKIE_SECURE — must be False for HTTP
-
-# Forgotten password?
-docker compose exec forge-web awx-manage update_password --username=admin --password=NewPass123!
+# Check FORGE_CSRF_TRUSTED_ORIGINS in .env
+# Must be full URL with https:// (e.g., https://192.168.56.22)
 ```
 
-### UI not working (blank page)
+### Server Error (500 on root page)
 
 ```bash
-# Check if static files are present
-docker compose exec forge-web ls /var/lib/awx/public/static/forge/
-# Must contain index_forge.html and assets/
+# Check if frontend container is running
+docker compose ps forge-frontend
+# Must be healthy
+
+# Check nginx routing
+docker compose logs nginx
 ```
 
 ### Jobs not running
 
 ```bash
-# Check task container processes
 docker compose exec forge-task supervisorctl status
-# All 4 must be RUNNING
+# All 4 must be RUNNING: receptor, dispatcher, callback-receiver, wsrelay
 
-# Check capacity
 docker compose exec forge-web awx-manage list_instances
+```
+
+### Forgotten admin password
+
+```bash
+docker compose exec forge-web awx-manage update_password --username=admin --password=NewPass123!
+```
+
+---
+
+## Upgrading
+
+```bash
+cd forge-deploy
+
+# 1. Pull new images
+docker compose pull
+
+# 2. Recreate containers (migrations run automatically via forge-init)
+docker compose up -d
+
+# 3. Verify
+docker compose ps
+curl -k https://forge.example.com/api/v2/ping/
 ```
 
 ---
@@ -316,17 +295,17 @@ docker compose exec forge-web awx-manage list_instances
 ### Adding an execution node
 
 ```bash
-# On the execution node: start a task container
+# On the execution node:
 docker run -d --name forge-task \
   -e DATABASE_HOST=db.example.com \
   -e REDIS_HOST=redis.example.com \
   -e FORGE_NODE_TYPE=execution \
   -e FORGE_NODE_NAME=exec-node-1 \
-  forge-platform/forge:latest launch_awx_task.sh
+  krlex/forge-backend:latest launch_awx_task.sh
 
-# On the control node: register the new node
-forge-manage provision_instance --hostname=exec-node-1 --node-type=execution
-forge-manage register_queue --queuename=default --hostnames=exec-node-1
+# On the control node:
+docker compose exec forge-web awx-manage provision_instance --hostname=exec-node-1 --node-type=execution
+docker compose exec forge-web awx-manage register_queue --queuename=default --hostnames=exec-node-1
 ```
 
 ### Recommended Hardware
@@ -336,4 +315,3 @@ forge-manage register_queue --queuename=default --hostnames=exec-node-1
 | Small (≤100 hosts) | 4 | 8GB | 50GB SSD |
 | Medium (≤1000 hosts) | 8 | 16GB | 100GB SSD |
 | Large (≤10000 hosts) | 16 | 32GB | 200GB SSD |
-| Enterprise (10000+) | 16+ | 64GB+ | 500GB SSD |
