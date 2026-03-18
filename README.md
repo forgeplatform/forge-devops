@@ -62,8 +62,8 @@ docker compose up -d
 | Service | Image | Port | Description |
 |---------|-------|------|-------------|
 | nginx | nginx:latest | 443, 80 | Reverse proxy, SSL termination |
-| forge-web | krlex/forge-backend | 8013 | Django API + uWSGI |
-| forge-task | krlex/forge-backend | - | Celery worker + Dispatcher |
+| forge-web | registry.cloudforyour.work/forge-platform/forge-backend | 8013 | Django API + uWSGI |
+| forge-task | registry.cloudforyour.work/forge-platform/forge-backend | - | Celery worker + Dispatcher |
 | postgres | postgres:15 | 5432 | Database |
 | redis | redis:7 | 6379 | Cache + message broker |
 

@@ -51,7 +51,7 @@ stages:
 ```
 
 ### Artifact:
-- Docker image: `krlex/forge-backend:<version>`
+- Docker image: `registry.cloudforyour.work/forge-platform/forge-backend:<version>`
 - API documentation (auto-generated)
 
 ---
@@ -89,7 +89,7 @@ stages:
 
 ### Artifact:
 - Build folder (`dist/`) — static files
-- Optional Docker image: `krlex/forge-frontend:<version>` (nginx + static files)
+- Optional Docker image: `registry.cloudforyour.work/forge-platform/forge-frontend:<version>` (nginx + static files)
 
 ### Configuration:
 - API URL is configured via environment variable (`VITE_API_URL`)
@@ -157,11 +157,11 @@ services:
   redis:
     image: redis:7
   forge-backend:
-    image: krlex/forge-backend:${VERSION}
+    image: registry.cloudforyour.work/forge-platform/forge-backend:${VERSION}
   forge-frontend:
-    image: krlex/forge-frontend:${VERSION}
+    image: registry.cloudforyour.work/forge-platform/forge-frontend:${VERSION}
   forge-task:
-    image: krlex/forge-backend:${VERSION}   # same image, different entrypoint
+    image: registry.cloudforyour.work/forge-platform/forge-backend:${VERSION}   # same image, different entrypoint
   nginx:
     # reverse proxy → frontend + backend API
 ```
@@ -263,8 +263,8 @@ forge-mobile/
        │ publish             │ publish              │ publish
        ▼                     ▼                      ▼
 ┌─────────────────────────────────────────────────────────┐
-│              Docker Registry (DockerHub)                │
-│  krlex/forge-backend   krlex/forge-frontend   krlex/... │
+│              Harbor Registry (registry.cloudforyour.work)                │
+│  registry.cloudforyour.work/forge-platform/forge-backend   registry.cloudforyour.work/forge-platform/forge-frontend   forge-platform/... │
 └─────────────────────────┬───────────────────────────────┘
                           │ pull
                           ▼
@@ -301,7 +301,7 @@ forge-mobile/
 
 ### Steps 4-5: CI/CD integration (estimate: 1 week)
 - GitLab CI for each repo
-- Docker Hub publish for each repo
+- Harbor registry publish for each repo
 - `forge-devops` orchestration
 
 ### Steps 6-7: Future components

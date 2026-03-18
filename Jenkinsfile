@@ -11,7 +11,7 @@
 //
 // Jenkins credentials required:
 //   - forge-git-creds:      SSH key for git.cloudforyour.work
-//   - forge-dockerhub-creds: DockerHub username/password (krlex)
+//   - forge-harbor-creds:   Harbor username/password (registry.cloudforyour.work)
 ///////////////////////////////////////////////////////////////////////////////
 
 pipeline {
@@ -27,9 +27,10 @@ pipeline {
         FRONTEND_REPO    = 'git@git.cloudforyour.work:forge-platform/forge-frontend.git'
         GIT_BRANCH_NAME  = "${env.BRANCH_NAME ?: 'main'}"
 
-        // Docker images
-        BACKEND_IMAGE    = 'krlex/forge-backend'
-        FRONTEND_IMAGE   = 'krlex/forge-frontend'
+        // Docker images (Harbor registry)
+        DOCKER_REGISTRY  = 'registry.cloudforyour.work'
+        BACKEND_IMAGE    = "${DOCKER_REGISTRY}/forge-platform/forge-backend"
+        FRONTEND_IMAGE   = "${DOCKER_REGISTRY}/forge-platform/forge-frontend"
 
         // Version from git tag or commit SHA
         GIT_TAG          = sh(script: 'git describe --tags --exact-match 2>/dev/null || echo ""', returnStdout: true).trim()
@@ -276,7 +277,7 @@ pipeline {
         }
 
         // ─── Release ───────────────────────────────────────────────────
-        // Push images to DockerHub. Runs on main branch or git tags.
+        // Push images to Harbor registry. Runs on main branch or git tags.
         stage('Release') {
             when {
                 anyOf {
@@ -288,12 +289,12 @@ pipeline {
                 script {
                     echo "=== Releasing Forge ${VERSION} ==="
                     withCredentials([usernamePassword(
-                        credentialsId: 'forge-dockerhub-creds',
+                        credentialsId: 'forge-harbor-creds',
                         usernameVariable: 'DOCKER_USER',
                         passwordVariable: 'DOCKER_PASS'
                     )]) {
                         sh '''
-                            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin ${DOCKER_REGISTRY}
                         '''
                     }
 
@@ -327,7 +328,7 @@ pipeline {
             sh """
                 docker rmi ${BACKEND_IMAGE}:${VERSION} ${BACKEND_IMAGE}:latest 2>/dev/null || true
                 docker rmi ${FRONTEND_IMAGE}:${VERSION} ${FRONTEND_IMAGE}:latest 2>/dev/null || true
-                docker logout 2>/dev/null || true
+                docker logout ${DOCKER_REGISTRY} 2>/dev/null || true
             """
         }
     }

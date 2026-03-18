@@ -12,7 +12,7 @@ builds across all three repositories: `forge-backend`, `forge-frontend`, and `fo
 │ Checkout │──►│  Lint  │──►│  Test  │──►│ Build  │──►│ Security │──►│ Release │
 └──────────┘   └────────┘   └────────┘   └────────┘   └──────────┘   └─────────┘
   clone          flake8       pytest       docker        pip-audit      docker push
-  backend +      tsc          vitest       build         trivy          DockerHub
+  backend +      tsc          vitest       build         trivy          Harbor
   frontend
 ```
 
@@ -25,11 +25,11 @@ builds across all three repositories: `forge-backend`, `forge-frontend`, and `fo
 | Lint (Frontend) | `tsc --noEmit` in frontend | TypeScript type errors |
 | Test (Python) | `pytest forge/main/tests/unit/` | Any test fails |
 | Test (Frontend) | `npx vitest run` | Any test fails |
-| Build Backend | `docker build` → `krlex/forge-backend` | Build error |
-| Build Frontend | `docker build` → `krlex/forge-frontend` | Build error |
+| Build Backend | `docker build` → `forge-platform/forge-backend` | Build error |
+| Build Frontend | `docker build` → `forge-platform/forge-frontend` | Build error |
 | Security (pip-audit) | CVE scan on Python deps | Critical CVE |
 | Security (Trivy) | Container image scan (backend + frontend) | CRITICAL CVE |
-| Release | `docker push` to DockerHub | Only on `main` or tags |
+| Release | `docker push` to Harbor (`registry.cloudforyour.work`) | Only on `main` or tags |
 
 ### Stage Conditions
 
@@ -46,7 +46,7 @@ builds across all three repositories: `forge-backend`, `forge-frontend`, and `fo
 | Credential ID | Type | Description |
 |---------------|------|-------------|
 | `forge-git-creds` | SSH Key | Access to `git.cloudforyour.work` repos |
-| `forge-dockerhub-creds` | Username/Password | DockerHub login (`krlex`) |
+| `forge-harbor-creds` | Username/Password | Harbor login (`registry.cloudforyour.work`) |
 
 ---
 
@@ -54,10 +54,10 @@ builds across all three repositories: `forge-backend`, `forge-frontend`, and `fo
 
 | Image | Source | Description |
 |-------|--------|-------------|
-| `krlex/forge-backend:latest` | `forge-backend/Dockerfile` | Django API + task engine |
-| `krlex/forge-backend:<version>` | Same | Version-tagged |
-| `krlex/forge-frontend:latest` | `forge-frontend/Dockerfile` | React SPA + nginx |
-| `krlex/forge-frontend:<version>` | Same | Version-tagged |
+| `registry.cloudforyour.work/forge-platform/forge-backend:latest` | `forge-backend/Dockerfile` | Django API + task engine |
+| `registry.cloudforyour.work/forge-platform/forge-backend:<version>` | Same | Version-tagged |
+| `registry.cloudforyour.work/forge-platform/forge-frontend:latest` | `forge-frontend/Dockerfile` | React SPA + nginx |
+| `registry.cloudforyour.work/forge-platform/forge-frontend:<version>` | Same | Version-tagged |
 
 ---
 
@@ -76,7 +76,7 @@ The version is derived from the git tag on `forge-deploy`:
 ```bash
 git tag -a v2026.03.0 -m "Forge 2026.03.0"
 git push origin v2026.03.0
-# Jenkins automatically: checkout → lint → test → build → security → push to DockerHub
+# Jenkins automatically: checkout → lint → test → build → security → push to Harbor
 ```
 
 ---
@@ -99,7 +99,7 @@ DJANGO_SETTINGS_MODULE=forge.settings.development \
 pip install pip-audit && pip-audit -r requirements/requirements.txt
 
 # Build image
-docker build -t krlex/forge-backend:latest .
+docker build -t registry.cloudforyour.work/forge-platform/forge-backend:latest .
 ```
 
 ### Frontend
@@ -114,7 +114,7 @@ npx tsc --noEmit
 npx vitest run
 
 # Build image
-docker build -t krlex/forge-frontend:latest .
+docker build -t registry.cloudforyour.work/forge-platform/forge-frontend:latest .
 ```
 
 ---
@@ -131,11 +131,11 @@ docker build -t krlex/forge-frontend:latest .
    - Runs lint + tests on both
    - Builds Docker images with version tag
    - Scans for vulnerabilities
-   - Pushes `krlex/forge-backend:<version>` and `krlex/forge-frontend:<version>` to DockerHub
+   - Pushes `forge-platform/forge-backend:<version>` and `forge-platform/forge-frontend:<version>` to Harbor registry
 
 ### Watch out
 
 - **Never release without passing tests.**
 - **Tag format must have `v` prefix:** `v2026.03.0`, not `2026.03.0`.
-- **DockerHub login** must be configured in Jenkins credentials before the first release.
+- **Harbor login** must be configured in Jenkins credentials (`forge-harbor-creds`) before the first release.
 - **Both repos must have a matching branch** — pipeline checks out the same branch name from all repos.

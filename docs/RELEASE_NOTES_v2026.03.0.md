@@ -50,7 +50,7 @@ Forge 2026.03.0 is the first official release — a complete modernization of AW
 - **GitLab CI** (`.gitlab-ci.yml`) — 5 stages: lint, test, build, security, release
 - **Jenkins** (`Jenkinsfile`) — equivalent pipeline with parallel stages
 - Version derived from git tag (`v2026.03.0` → `2026.03.0`)
-- Automated Docker Hub push on tag release
+- Automated Harbor registry push on tag release
 - pip-audit + Trivy security scanning integrated
 
 ---

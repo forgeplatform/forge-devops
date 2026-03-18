@@ -38,7 +38,7 @@ push / MR                    git tag v*
             ▼
 ┌────────────────────────────────────┐
 │           Release                   │  (only on tags v*)
-│   GitLab Registry  │  Docker Hub   │
+│   GitLab Registry  │    Harbor     │
 │   (automatic)      │  (manual)     │
 └────────────────────────────────────┘
 ```
@@ -96,7 +96,7 @@ Both have `allow_failure: true` — they report vulnerabilities but don't block 
 | Job | Destination | Trigger |
 |-----|-------------|---------|
 | `release:gitlab-registry` | GitLab Container Registry | Automatic on tag |
-| `release:dockerhub` | Docker Hub | **Manual** (click to deploy) |
+| `release:harbor` | Harbor (`registry.cloudforyour.work`) | **Manual** (click to deploy) |
 
 The CentOS image is tagged as the primary (`:latest`, `:${VERSION}`).
 Ubuntu is available as `:${VERSION}-ubuntu`.
@@ -143,13 +143,13 @@ workflow:
 | `CI_REGISTRY_PASSWORD` | GitLab (automatic) | Registry password |
 | `CI_REGISTRY_IMAGE` | GitLab (automatic) | Full image path |
 
-### Required for Docker Hub release
+### Required for Harbor release
 
 | Variable | Set manually | Description |
 |----------|-------------|-------------|
-| `DOCKERHUB_USER` | Yes | Docker Hub username |
-| `DOCKERHUB_TOKEN` | Yes (masked) | Docker Hub access token |
-| `DOCKERHUB_IMAGE` | Yes | Image name (e.g., `krlex/forge-platform`) |
+| `HARBOR_USER` | Yes | Harbor registry username |
+| `HARBOR_TOKEN` | Yes (masked) | Harbor registry access token |
+| `HARBOR_REGISTRY` | Yes | Registry URL (`registry.cloudforyour.work`) |
 
 ---
 

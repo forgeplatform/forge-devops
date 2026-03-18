@@ -202,7 +202,7 @@ CREATE TABLE audit_log (
     "approval_id": "abc-123",
     "server": "forge-prod",
     "action": "deploy",
-    "image": "docker.io/forge-platform/forge:2.1.3",
+    "image": "registry.cloudforyour.work/forge-platform/forge:2.1.3",
     "commit": "a6705d9",
     "branch": "modernization",
     "requested_by": "krle",
@@ -271,7 +271,7 @@ CREATE TABLE audit_log (
 │ Deploy forge v2.1.3                 │
 │ ──────────────────────────────────  │
 │ Server:    forge-prod               │
-│ Image:     docker.io/forge-platform/forge:2.1.3 │
+│ Image:     registry.cloudforyour.work/forge-platform/forge:2.1.3 │
 │ Branch:    modernization            │
 │ Commit:    a6705d9                  │
 │ Requested: krle (3 min ago)         │
@@ -438,10 +438,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build Docker image
-        run: docker build -t docker.io/forge-platform/forge:${{ github.ref_name }} .
+        run: docker build -t registry.cloudforyour.work/forge-platform/forge:${{ github.ref_name }} .
 
       - name: Push image
-        run: docker push docker.io/forge-platform/forge:${{ github.ref_name }}
+        run: docker push registry.cloudforyour.work/forge-platform/forge:${{ github.ref_name }}
 
       - name: Request deployment approval
         id: approval
@@ -455,7 +455,7 @@ jobs:
               "action": "deploy",
               "description": "Deploy ${{ github.ref_name }}",
               "metadata": {
-                "image": "docker.io/forge-platform/forge:${{ github.ref_name }}",
+                "image": "registry.cloudforyour.work/forge-platform/forge:${{ github.ref_name }}",
                 "commit": "${{ github.sha }}",
                 "branch": "${{ github.ref_name }}",
                 "actor": "${{ github.actor }}"

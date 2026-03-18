@@ -34,7 +34,7 @@ digraph ForgeArchitecture {
     }
 
     // ── Docker Registry ──
-    registry [label="Docker Registry\n(DockerHub)",
+    registry [label="Harbor Registry\n(registry.cloudforyour.work)",
               fillcolor="#313244", color="#f9e2af", fontcolor="#f9e2af",
               shape="box", style="filled,rounded", penwidth=2];
 
@@ -97,9 +97,9 @@ digraph ForgeArchitecture {
     frontend -> registry [label="  docker push  ", color="#a6e3a1", fontcolor="#a6e3a1"];
 
     // Registry → Deploy
-    registry -> web [label="  krlex/forge-backend  ", color="#f9e2af", fontcolor="#f9e2af"];
+    registry -> web [label="  forge-platform/forge-backend  ", color="#f9e2af", fontcolor="#f9e2af"];
     registry -> task [style="invis"];
-    registry -> fe [label="  krlex/forge-frontend  ", color="#a6e3a1", fontcolor="#a6e3a1"];
+    registry -> fe [label="  forge-platform/forge-frontend  ", color="#a6e3a1", fontcolor="#a6e3a1"];
     registry -> init [style="invis"];
 
     // Deploy → Infra

@@ -950,7 +950,7 @@ First release: `2026.XX.0`
 - [x] VERSION file updated (24.6.2 → 2026.03.0, CalVer format)
 - [x] CI/CD pipeline created (.gitlab-ci.yml + Jenkinsfile)
 - [ ] Git tag created (v2026.03.0)
-- [ ] Container image built and pushed (Docker Hub)
+- [ ] Container image built and pushed (Harbor registry)
 - [ ] Release notes written
 
 ### 9.3 Container Registry

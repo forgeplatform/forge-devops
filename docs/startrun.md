@@ -14,10 +14,10 @@ Modernization for running on newer systems (Ubuntu 24.04+, Python 3.12+).
 
 Forge Platform is split into three independent repositories:
 
-| Repository | Description | DockerHub |
-|------------|-------------|-----------|
-| `forge-backend` | Django REST API, task engine, receptor | `krlex/forge-backend` |
-| `forge-frontend` | React UI (Vite + TypeScript) | `krlex/forge-frontend` |
+| Repository | Description | Registry |
+|------------|-------------|----------|
+| `forge-backend` | Django REST API, task engine, receptor | `registry.cloudforyour.work/forge-platform/forge-backend` |
+| `forge-frontend` | React UI (Vite + TypeScript) | `registry.cloudforyour.work/forge-platform/forge-frontend` |
 | `forge-deploy` | Docker Compose, nginx, settings, scripts | — |
 
 ### Service Architecture
@@ -69,10 +69,10 @@ The monolithic AWX codebase was separated into three independent repos:
 - **forge-frontend**: React/Vite/TypeScript SPA with its own Dockerfile (Node 20 build + nginx serve)
 - **forge-deploy**: Production Docker Compose stack, nginx TLS config, init/healthcheck/backup scripts
 
-### Docker Images on DockerHub
+### Docker Images on Harbor
 
-- `krlex/forge-backend:latest` — Ubuntu 24.04, Python 3.12, receptor, supervisor
-- `krlex/forge-frontend:latest` — nginx 1.27-alpine serving built React assets
+- `registry.cloudforyour.work/forge-platform/forge-backend:latest` — Ubuntu 24.04, Python 3.12, receptor, supervisor
+- `registry.cloudforyour.work/forge-platform/forge-frontend:latest` — nginx 1.27-alpine serving built React assets
 
 ### Production Deployment (VERIFIED 2026-03-17)
 
@@ -150,11 +150,11 @@ Checkout (backend + frontend) → Lint → Test → Build → Security → Relea
 - Pipeline clones `forge-backend` and `forge-frontend` from Git
 - Runs Python lint (flake8) + frontend lint (tsc) in parallel
 - Runs Python unit tests (pytest) + frontend tests (vitest) in parallel
-- Builds both Docker images (`krlex/forge-backend`, `krlex/forge-frontend`)
+- Builds both Docker images (`forge-platform/forge-backend`, `forge-platform/forge-frontend`)
 - Security scans: pip-audit + Trivy container scan
-- Release: pushes versioned images to DockerHub on `main` branch or git tags
+- Release: pushes versioned images to Harbor (`registry.cloudforyour.work`) on `main` branch or git tags
 
-Jenkins credentials: `forge-git-creds` (SSH), `forge-dockerhub-creds` (DockerHub)
+Jenkins credentials: `forge-git-creds` (SSH), `forge-harbor-creds` (Harbor)
 
 ---
 
@@ -214,16 +214,16 @@ docker compose up -d
 
 ```bash
 cd forge-backend
-docker build -t krlex/forge-backend:latest .
-docker push krlex/forge-backend:latest
+docker build -t registry.cloudforyour.work/forge-platform/forge-backend:latest .
+docker push registry.cloudforyour.work/forge-platform/forge-backend:latest
 ```
 
 ### Frontend
 
 ```bash
 cd forge-frontend
-docker build -t krlex/forge-frontend:latest .
-docker push krlex/forge-frontend:latest
+docker build -t registry.cloudforyour.work/forge-platform/forge-frontend:latest .
+docker push registry.cloudforyour.work/forge-platform/forge-frontend:latest
 ```
 
 ---
