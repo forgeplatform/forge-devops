@@ -131,6 +131,18 @@ remote execution nodes over TCP port 2222.
 6. Events flow: Runner → Callback Receiver → database + WSRelay → WebSocket → browser
 7. Browser receives events and updates the UI in real-time (no page refresh needed)
 
+### ...an external system sends a webhook (EDA)
+
+1. External system (GitHub, Alertmanager, etc.) sends POST to `/api/v2/eda_webhooks/<path>/`
+2. Nginx forwards to uWSGI (no authentication required on this endpoint)
+3. Django verifies the HMAC signature against the EventRule's webhook key
+4. An `EventLog` record is created with status `received`
+5. A Celery task is dispatched for async rule evaluation
+6. The Celery task evaluates Jinja2 conditions against the webhook payload
+7. If conditions match: launches job templates, workflows, or sends notifications
+8. `EventLog` is updated with results; `AuditEvent` is created for compliance
+9. Caller receives `202 Accepted` immediately (processing is async)
+
 ### ...a user opens a page in the browser
 
 1. Browser sends a GET request

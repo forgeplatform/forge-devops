@@ -10,7 +10,7 @@ Organized by priority tiers with estimated effort and dependencies.
 Features that address the most common community pain points and provide
 immediate competitive advantage over AWX and alternatives.
 
-### 1.1 Dynamic Surveys
+### 1.1 Dynamic Surveys --- COMPLETED (v2026.04.0)
 
 **Problem:** AWX surveys only support static, hardcoded choices. Users cannot
 populate dropdown options from inventory, host facts, or external APIs.
@@ -30,7 +30,7 @@ This is the single most upvoted feature request in the AWX community.
 
 ---
 
-### 1.2 Event-Driven Automation (EDA)
+### 1.2 Event-Driven Automation (EDA) --- COMPLETED (v2026.04.0)
 
 **Problem:** AWX can only run jobs on schedules or manual triggers. There is no
 way to react to real-time events (monitoring alerts, Git pushes, cloud events).
@@ -71,7 +71,7 @@ Ascender's "Ledger" product fills this gap commercially.
 
 ---
 
-### 1.4 AI Assistant (Ollama RAG)
+### 1.4 AI Assistant (Ollama RAG) --- COMPLETED (v2026.04.0)
 
 **Problem:** Users need contextual help while using the platform. Error messages
 from failed jobs are often cryptic. New users struggle with RBAC, credentials,
@@ -90,7 +90,7 @@ and inventory setup.
 
 ---
 
-### 1.5 Improved Audit Trail
+### 1.5 Improved Audit Trail --- COMPLETED (v2026.04.0)
 
 **Problem:** AWX activity stream records changes but lacks detail for compliance
 auditing. No way to generate audit reports or track credential access.
@@ -290,11 +290,11 @@ Detailed plan in `docs/mobile_plan.md`:
 
 | # | Feature | Impact | Effort | Priority |
 |---|---------|--------|--------|----------|
-| 1.1 | Dynamic Surveys | High | 2-3w | P0 |
-| 1.2 | Event-Driven Automation | High | 4-6w | P0 |
+| 1.1 | Dynamic Surveys | High | 2-3w | **DONE** |
+| 1.2 | Event-Driven Automation | High | 4-6w | **DONE** |
 | 1.3 | Drift Detection | High | 3-4w | P0 |
-| 1.4 | AI Assistant (Ollama) | High | 4w | P0 |
-| 1.5 | Audit Trail | Medium | 2-3w | P1 |
+| 1.4 | AI Assistant (Ollama) | High | 4w | **DONE** |
+| 1.5 | Audit Trail | Medium | 2-3w | **DONE** |
 | 2.1 | Self-Service Portal | High | 3-4w | P1 |
 | 2.2 | Policy-as-Code (OPA) | Medium | 4-5w | P1 |
 | 2.3 | OIDC + WebAuthn | Medium | 3-4w | P1 |
@@ -314,10 +314,10 @@ Detailed plan in `docs/mobile_plan.md`:
 | Feature | Forge | AWX | AAP 2.5+ | Ascender | Semaphore |
 |---------|-------|-----|----------|----------|-----------|
 | Docker Compose deploy | Yes | No | No | Yes | Yes |
-| Dynamic surveys | Planned | No | No | No | No |
-| Event-driven (EDA) | Planned | No | Yes | No | No |
+| Dynamic surveys | Yes | No | No | No | No |
+| Event-driven (EDA) | Yes | No | Yes | No | No |
 | Drift detection | Planned | No | No | Yes | No |
-| AI assistant | Planned | No | Yes | No | No |
+| AI assistant | Yes | No | Yes | No | No |
 | Self-service portal | Planned | No | Yes | No | No |
 | Policy-as-Code | Planned | No | Planned | No | No |
 | OIDC native | Planned | Partial | Yes | Partial | No |

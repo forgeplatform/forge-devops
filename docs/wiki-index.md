@@ -26,6 +26,9 @@ inventories, credentials, and scheduled automation at scale.
 | 10 | [Contributing Guide](10-contributing-guide.md) | Git workflow, commit conventions, PR process |
 | 11 | [API Reference](11-api-reference.md) | REST API endpoints, authentication, usage examples |
 | 12 | [Configuration Reference](12-configuration-reference.md) | Settings, environment variables, tuning |
+| 13 | [Dynamic Surveys](13-dynamic-surveys.md) | Dynamic choice sources for survey questions |
+| 14 | [Audit Trail](14-audit-trail.md) | Activity stream + immutable audit events |
+| 15 | [Event-Driven Automation](15-event-driven-automation.md) | Webhook rules, conditions, automated actions |
 
 ---
 
