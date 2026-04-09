@@ -23,6 +23,7 @@ x-forge-common: &forge-common
     OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-forge}
     OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
     OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.1}
+    TENANCY_ENABLED: ${TENANCY_ENABLED:-false}
   volumes: &forge-volumes
     - ./settings/settings.py:/etc/tower/settings.py:ro
     - ./settings/database.py:/etc/tower/conf.d/database.py:ro
