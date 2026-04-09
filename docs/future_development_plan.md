@@ -396,7 +396,20 @@ Detailed plan in `docs/mobile_plan.md`:
 | 3.3 | Kubernetes Operator | Medium | 6-8w | P2 |
 | 3.4 | IaC Scanning | Medium | 3-4w | **DONE** |
 | 3.5 | Mobile App | Medium | 7w | P2 |
-| 3.6 | Observability (OTel) | Medium | 3-4w | P2 |
+| 3.6 | Observability (OTel) | Medium | 3-4w | **DONE** |
+
+---
+
+## Infrastructure & Test Environments
+
+- **Provision Kubernetes test instance for Forge Platform** — currently
+  there is no k8s environment to validate Tier 3.6 manifest stubs
+  (`forge-deploy/k8s/otel-collector.yaml`,
+  `forge-deploy/k8s/grafana-dashboards-cm.yaml`) or to begin work on
+  Tier 3.3 (Kubernetes Operator). A small single-node cluster (k3s,
+  kind, or microk8s on a dedicated VM) is enough to start. Acceptance:
+  `kubectl apply -f forge-deploy/k8s/` succeeds and Collector pods
+  reach Ready state. Owner: TBD. Priority: blocks 3.3 and validates 3.6.
 
 ---
 

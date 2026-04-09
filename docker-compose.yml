@@ -18,6 +18,11 @@ x-forge-common: &forge-common
     FORGE_CSRF_TRUSTED_ORIGINS: ${FORGE_CSRF_TRUSTED_ORIGINS:-}
     FORGE_NODE_NAME: ${FORGE_NODE_NAME:-forge-node}
     FORGE_NODE_TYPE: ${FORGE_NODE_TYPE:-hybrid}
+    OTEL_ENABLED: ${OTEL_ENABLED:-true}
+    OTEL_EXPORTER_ENDPOINT: ${OTEL_EXPORTER_ENDPOINT:-http://forge-otel-collector:4317}
+    OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-forge}
+    OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
+    OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.1}
   volumes: &forge-volumes
     - ./settings/settings.py:/etc/tower/settings.py:ro
     - ./settings/database.py:/etc/tower/conf.d/database.py:ro
@@ -164,6 +169,19 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+    restart: unless-stopped
+
+  # ── OpenTelemetry Collector (Tier 3.6 Observability) ──
+  forge-otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ./otel/config.yaml:/etc/otel/config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    networks:
+      - forge
     restart: unless-stopped
 
   # ── External nginx (TLS termination + routing) ─────────
