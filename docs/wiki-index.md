@@ -34,6 +34,7 @@ inventories, credentials, and scheduled automation at scale.
 | 18 | [OIDC + WebAuthn](18-oidc-webauthn.md) | Modern SSO via OIDC and FIDO2 passwordless / MFA |
 | 19 | [Policy-as-Code (OPA)](19-policy-as-code.md) | Open Policy Agent rules evaluated before every launch |
 | 20 | [IaC Scanning & Supply Chain Security](20-iac-scanning.md) | ansible-lint / checkov / pip-audit run over playbooks and requirements at launch time, with severity threshold + enforcement per scanner |
+| 21 | [Observability (OpenTelemetry)](../../forge-backend/docs/21-observability.md) | OTel traces + metrics emitted from Django and Celery, OTLP Collector sidecar, Grafana dashboard, k8s manifest stubs |
 
 ---
 
