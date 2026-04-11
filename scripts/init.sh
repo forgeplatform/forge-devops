@@ -49,4 +49,19 @@ Setting.objects.update_or_create(key='CSRF_TRUSTED_ORIGINS', defaults={'value': 
 print('CSRF_TRUSTED_ORIGINS set to:', origins)
 "
 
+echo "==> Clearing AWX isolation show paths..."
+# upstream forge/settings/production.py hardcodes two CentOS CA-trust
+# bind mounts (/etc/pki/ca-trust and /usr/share/pki). These paths do
+# not exist on our Ubuntu-based forge-backend image so podman dies with
+# 'mounting overlay failed "/usr/share/pki": no such file or directory'
+# the instant an EE container tries to start. AWX_ISOLATION_SHOW_PATHS
+# is DB-backed (editable in admin UI), so we blank it here. Operators
+# that need custom CA trust can repopulate it from the UI with paths
+# that actually exist inside the forge-backend image.
+forge-manage shell -c "
+from forge.conf.models import Setting
+Setting.objects.update_or_create(key='AWX_ISOLATION_SHOW_PATHS', defaults={'value': []})
+print('AWX_ISOLATION_SHOW_PATHS set to []')
+"
+
 echo "==> Initialization complete."

@@ -23,3 +23,7 @@ CLUSTER_HOST_ID = os.environ.get('FORGE_NODE_NAME', os.environ.get('AWX_NODE_NAM
 
 # Required for non-K8s deployments to allow task startup auto-registration
 AWX_AUTO_DEPROVISION_INSTANCES = True
+
+# NOTE: AWX_ISOLATION_SHOW_PATHS is a database-backed Setting, so a value
+# here is silently overridden by what init.sh writes into the Setting
+# table. See scripts/init.sh for the actual source of truth.

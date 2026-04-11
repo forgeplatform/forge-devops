@@ -141,6 +141,12 @@ services:
     # working setup; a tighter cap_add/security_opt list is possible but
     # fragile across kernels and not worth the complexity here.
     privileged: true
+    # cgroup v2 hosts delegate controllers per cgroup namespace. The
+    # default Docker cgroupns is "private", which blocks podman/crun from
+    # reaching the pids / memory / cpu controllers and produces
+    # "requested cgroup controller pids is not available". Sharing the
+    # host cgroup namespace fixes it.
+    cgroup: host
     volumes:
       - ./settings/settings.py:/etc/tower/settings.py:ro
       - ./settings/database.py:/etc/tower/conf.d/database.py:ro
