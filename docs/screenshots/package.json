@@ -1,0 +1,13 @@
+{
+  "name": "forge-handbook-screenshots",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Playwright-based screenshot generator for the Forge user handbook. Not part of the application — documentation tooling only.",
+  "type": "module",
+  "scripts": {
+    "screenshots": "node screenshots.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.59.0"
+  }
+}
