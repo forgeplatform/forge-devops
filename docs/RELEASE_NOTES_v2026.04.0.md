@@ -127,11 +127,57 @@ Updated documentation:
 
 ---
 
+## v2026.04.0-patch1 (2026-04-13)
+
+### Improvements
+
+- **AI Assistant redesign** — Floating chat widget with welcome message, minimize/maximize, message timestamps, streaming responses
+- **Assistant RAG documentation** — 14 knowledge base files (850 lines) covering all features: EDA, Drift, Policy, Scanner, Service Catalog, Tenancy, WebAuthn, Recommendations, Observability, Wizards, API reference, common errors
+- **ChromaDB client upgrade** — Updated from 0.5.23 to 1.5.7 for compatibility with ChromaDB server 1.4.x
+- **Nginx proxy** — Added `/assistant/` proxy route for AI Assistant API with SSE streaming support
+
+### Bug Fixes
+
+- **Migration ordering** — Fixed `_OrgAdmin_to_use_ig.py` to use `apps.get_model()` instead of direct model import, preventing schema mismatch on fresh deploys
+- **Missing migrations** — Added `0204_audit_event` migration for AuditEvent model and ActivityStream audit fields (actor_ip, actor_user_agent, actor_session_id)
+- **Migration chain** — Reordered migrations so audit_event (0204) precedes RLS policies (0206) which references the table
+- **Assistant docker-compose** — Fixed healthchecks for Ollama and ChromaDB containers (curl not available in images)
+- **Assistant registry path** — Fixed image path from `forgeplatform` to `forge-platform`
+
+### Testing
+
+- **Backend** — Added `test_comprehensive.py`: 97 standalone tests covering SimpleDAG (cycle detection, topological sort), K8s CPU/memory parsing, Jinja sanitization, safe YAML dump, string coercion, vars validation
+- **Frontend** — Added `statusConfig.test.ts`, `client.test.ts`, `app.test.ts`: 72 tests for status mappings, API error flattening, route completeness (all 70+ routes verified)
+- **CI pipeline** — Jenkinsfile now runs 4 parallel test stages: Backend Standalone, Backend Unit, Frontend, Assistant
+- **Total test count** — Backend 404 + Frontend 212 = 616 tests passing
+
+### Refactoring
+
+- **forge-assistant** — Extracted shared ChromaDB client and embedding functions into `app/db.py`, eliminating 32 lines of duplicated code between `rag.py` and `indexer.py`
+
+### Quality Metrics
+
+| Metric | Value |
+|--------|-------|
+| Backend standalone tests | 404 passed |
+| Frontend tests (vitest) | 212 passed |
+| Assistant knowledge base | 14 docs, 92 chunks indexed |
+| TypeScript compilation | 0 errors |
+
+---
+
 ## Competitive Landscape Update
 
 | Feature | Forge | AWX | AAP 2.5+ | Ascender | Semaphore |
 |---------|-------|-----|----------|----------|-----------|
 | Dynamic surveys | **Yes** | No | No | No | No |
 | Event-driven (EDA) | **Yes** | No | Yes | No | No |
-| AI assistant | **Yes** | No | Yes | No | No |
+| AI assistant (RAG) | **Yes** | No | Yes | No | No |
 | Audit trail (immutable) | **Yes** | No | Partial | No | No |
+| IaC scanning | **Yes** | No | No | No | No |
+| Policy-as-Code (OPA) | **Yes** | No | No | No | No |
+| Drift detection | **Yes** | No | No | No | No |
+| Self-service portal | **Yes** | No | Partial | No | No |
+| Multi-tenancy (RLS) | **Yes** | No | Partial | No | No |
+| WebAuthn/Passkey MFA | **Yes** | No | No | No | No |
+| Smart recommendations | **Yes** | No | No | No | No |
