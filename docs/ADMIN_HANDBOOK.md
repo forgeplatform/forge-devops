@@ -427,7 +427,7 @@ Execution nodes run Ansible jobs. Add more when you exhaust capacity.
    ```bash
    docker run -d --name forge-receptor \
      -e RECEPTOR_NODE_TYPE=execution \
-     -e RECEPTOR_PEER=tcp://control.forge.example.com:27199 \
+     -e RECEPTOR_PEER=tcp://control.forge.example.com:2222 \
      registry.cloudforyour.work/forge-platform/forge-receptor:2026.04.0
    ```
 3. In the UI: **Admin → Instances → Add** and register the new node:
@@ -454,7 +454,7 @@ Hop nodes relay traffic across network boundaries (e.g. DMZ → internal).
    ```bash
    docker run -d --name forge-receptor \
      -e RECEPTOR_NODE_TYPE=hop \
-     -e RECEPTOR_PEER=tcp://control.forge.example.com:27199 \
+     -e RECEPTOR_PEER=tcp://control.forge.example.com:2222 \
      registry.cloudforyour.work/forge-platform/forge-receptor:2026.04.0
    ```
 3. In the UI: **Admin → Instances → Add** with **Node Type = hop**.
@@ -610,7 +610,7 @@ Secrets to rotate periodically: `FORGE_SECRET_KEY`, `POSTGRES_PASSWORD`, `FORGE_
 
 1. Allow inbound only on **443** (and optionally 80 for HTTP→HTTPS redirect).
 2. Restrict SSH to your bastion / admin range.
-3. Block Postgres (5432), Redis (6379), Receptor (27199) from the public internet — they should only be reachable from inside the Docker network.
+3. Block Postgres (5432), Redis (6379), Receptor (2222) from the public internet — they should only be reachable from inside the Docker network.
 4. If running on cloud, also configure security groups, not just OS firewall.
 
 **Example — ufw on Ubuntu**
@@ -702,7 +702,7 @@ Symptom: jobs sit in *Pending* and never start.
    ```bash
    docker exec forge-receptor receptorctl status
    ```
-4. Verify TCP reachability between nodes on **27199**.
+4. Verify TCP reachability between nodes on **2222**.
 5. Restart the affected receptor container.
 
 ---

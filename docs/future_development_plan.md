@@ -490,12 +490,12 @@ Detailed plan in `docs/mobile_plan.md`:
 | Event-driven (EDA) | Yes | No | Yes | No | No |
 | Drift detection | Yes | No | No | Yes | No |
 | AI assistant | Yes | No | Yes | No | No |
-| Self-service portal | Planned | No | Yes | No | No |
-| Policy-as-Code | Planned | No | Planned | No | No |
-| OIDC native | Planned | Partial | Yes | Partial | No |
-| WebAuthn/passkeys | Planned | No | No | No | No |
+| Self-service portal | **Yes** | No | Yes | No | No |
+| Policy-as-Code | **Yes** | No | Planned | No | No |
+| OIDC native | **Yes** | Partial | Yes | Partial | No |
+| WebAuthn/passkeys | **Yes** | No | No | No | No |
 | Modern UI (React 18) | Yes | Legacy | Yes | Legacy | Yes |
-| Multi-tenancy | Planned | No | Yes | No | No |
+| Multi-tenancy | **Yes** | No | Yes | No | No |
 | K8s operator | Planned | Yes | Yes | Yes | No |
 | Open source | Yes | Yes | No | Partial | Yes |
 

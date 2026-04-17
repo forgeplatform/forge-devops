@@ -1,4 +1,8 @@
-# Forge - Detailed Development Plan
+# Forge - Detailed Development Plan (HISTORICAL — COMPLETED)
+
+> **Status: COMPLETED.** This detailed plan was fully executed as of v2026.04.0. This document is retained for historical reference. For the current state, see [Release Notes v2026.04.0](RELEASE_NOTES_v2026.04.0.md).
+
+---
 
 ## Codebase Overview
 

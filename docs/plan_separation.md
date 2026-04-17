@@ -1,4 +1,8 @@
-# Project Separation Plan — Separate Repositories
+# Project Separation Plan — Separate Repositories (HISTORICAL — COMPLETED)
+
+> **Status: COMPLETED.** The monorepo was successfully separated into independent repositories. This document is retained for historical reference.
+
+---
 
 ## Overview
 

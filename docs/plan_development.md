@@ -1,4 +1,8 @@
-# Forge - Development Plan
+# Forge - Development Plan (HISTORICAL — COMPLETED)
+
+> **Status: COMPLETED.** This plan was executed and all phases were delivered as of v2026.04.0. This document is retained for historical reference only. For the current state, see [Release Notes v2026.04.0](RELEASE_NOTES_v2026.04.0.md).
+
+---
 
 ## Current State Overview
 
