@@ -12,11 +12,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate docker-compose files
         run: |
-          for f in docker-compose*.yml; do
-            [ -f "$f" ] || continue
-            echo "Validating $f"
-            docker compose -f "$f" config -q
-          done
+          docker compose -f docker-compose.yml config -q
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml config -q
       - name: Shellcheck scripts
         uses: ludeeus/action-shellcheck@master
         with:
