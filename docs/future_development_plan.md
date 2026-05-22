@@ -350,14 +350,31 @@ manually skinning the UI per customer.
 
 ---
 
-### 3.3 Kubernetes Operator
+### 3.3 Kubernetes Operator --- COMPLETED (v2026.05.0)
 
-- CRDs for core resources: JobTemplate, Inventory, Credential, Schedule
-- Reconciliation controller for desired-state management
-- Helm chart + OLM distribution
-- Multi-cluster support from a single control plane
+**Delivered:**
+- 9 CRDs spanning the full Forge resource model: `Inventory`,
+  `Credential`, `JobTemplate`, `Schedule`, `Project`, `Organization`,
+  `Team`, `Workflow`, `ForgeInstance` (in `forge-operator/api/v1alpha1/`).
+- Reconciliation controllers for each CRD with finalizer-driven
+  cleanup, 60-second drift reconcile, and Secret watch for instant
+  Credential rotation.
+- Helm chart (`forge-operator/helm/`) with full RBAC + all 9 CRD
+  manifests; chart bumped to 1.0.0.
+- OLM bundle: `config/manifests/bases/forge-operator.clusterserviceversion.yaml`
+  with `alm-examples` for all 9 CRDs, `spec.icon`, `bundle.Dockerfile`,
+  Makefile targets (`bundle`, `bundle-build`, `bundle-validate`,
+  `catalog-build`). `operator-sdk bundle validate` clean.
+- **Multi-cluster control plane** via `ForgeInstance` CR +
+  `forgeapi.ClientPool` (per-CR routing to different Forge backends
+  by name + tokenSecretRef; generation-gated cache invalidation).
+- **Declarative Workflow DAG**: `spec.nodes[]` keyed by `identifier`,
+  three edge types (`successNodes`, `failureNodes`, `alwaysNodes`)
+  reconciled against `/workflow_job_template_nodes/`.
+- e2e tested live against 3m+4w k3s 1.30 cluster
+  (see `forge-dev-cluster/` for the topology).
 
-**Effort:** 6-8 weeks
+**Effort spent:** 5 days (2026-05-17 → 2026-05-21).
 
 ---
 
@@ -461,7 +478,7 @@ Detailed plan in `docs/mobile_plan.md`:
 | 2.5 | Analytics Dashboard | Medium | 3w | **DONE** |
 | 3.1 | Plugin Architecture | High | 8-12w | P2 |
 | 3.2 | Multi-Tenancy | High | 6-8w | **DONE** |
-| 3.3 | Kubernetes Operator | Medium | 6-8w | P2 |
+| 3.3 | Kubernetes Operator | Medium | 5d (spent) | **DONE** (v2026.05.0) |
 | 3.4 | IaC Scanning | Medium | 3-4w | **DONE** |
 | 3.5 | Mobile App | Medium | 7w | P2 |
 | 3.6 | Observability (OTel) | Medium | 3-4w | **DONE** |
@@ -470,14 +487,15 @@ Detailed plan in `docs/mobile_plan.md`:
 
 ## Infrastructure & Test Environments
 
-- **Provision Kubernetes test instance for Forge Platform** — currently
-  there is no k8s environment to validate Tier 3.6 manifest stubs
-  (`forge-deploy/k8s/otel-collector.yaml`,
-  `forge-deploy/k8s/grafana-dashboards-cm.yaml`) or to begin work on
-  Tier 3.3 (Kubernetes Operator). A small single-node cluster (k3s,
-  kind, or microk8s on a dedicated VM) is enough to start. Acceptance:
-  `kubectl apply -f forge-deploy/k8s/` succeeds and Collector pods
-  reach Ready state. Owner: TBD. Priority: blocks 3.3 and validates 3.6.
+- ~~**Provision Kubernetes test instance for Forge Platform**~~ —
+  **DONE** (2026-05-13..16). `forge-dev-cluster` switched from
+  2-master + 2-worker kubeadm to **3-master + 4-worker k3s 1.30.4**
+  Vagrant cluster (`192.168.56.30-36`, 14 vCPU / 28 GB total) with
+  embedded etcd HA, bundled Traefik / local-path / klipper-lb /
+  metrics-server, and `--flannel-iface=eth1` fix for the long-standing
+  VirtualBox cross-node VXLAN issue. This unblocked Tier 3.3
+  (Kubernetes Operator v1.0.0) and lets us validate 3.6 manifest
+  stubs end-to-end.
 
 ---
 
@@ -496,7 +514,7 @@ Detailed plan in `docs/mobile_plan.md`:
 | WebAuthn/passkeys | **Yes** | No | No | No | No |
 | Modern UI (React 18) | Yes | Legacy | Yes | Legacy | Yes |
 | Multi-tenancy | **Yes** | No | Yes | No | No |
-| K8s operator | Planned | Yes | Yes | Yes | No |
+| K8s operator | **Yes** (9 CRDs, multi-cluster) | Yes | Yes | Yes | No |
 | Open source | Yes | Yes | No | Partial | Yes |
 
 ---

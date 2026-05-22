@@ -22,7 +22,7 @@ single PVC.
 | Component | Version | Notes |
 |-----------|---------|-------|
 | forge-backend | 2026.05.0 | Migration `0208` fix for `DriftAlertRule` audit fields |
-| forge-frontend | 2026.05.0 | Tracks backend API |
+| forge-frontend | 0.1.0 | No changes this cycle (UI from v2026.04.0 still current) |
 | forge-assistant | 2026.05.0 | All-in-one image (Ollama + ChromaDB embedded), `gemma3:1b` default |
 | forge-operator | **1.0.0** | 5 new CRDs, multi-cluster, OLM bundle |
 | forge-helm | **1.0.0** | `appVersion: 2026.05.0` |
