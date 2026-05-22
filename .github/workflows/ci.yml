@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+    branches: [main, forge-operator]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate docker-compose files
+        run: |
+          cp .env.example .env
+          docker compose -f docker-compose.yml config -q
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml config -q
+      - name: Shellcheck scripts
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: ./scripts
+        continue-on-error: true
