@@ -106,7 +106,7 @@ management command. `awx-manage` still works via symlink for backward compatibil
 - Full rebranding AWX → Forge (Level 1 user-facing + Level 2 package rename)
 - **2882 files changed** — `awx/` → `forge/` with all imports updated
 - Python unit tests: **1083 passed**, 0 failed
-- CI/CD: Jenkinsfile with Lint → Test → Build → Security → Release stages
+- CI/CD: GitHub Actions workflow with Lint → Test → Build → Security → Release stages
 - Version: `2026.03.0` (CalVer format)
 
 ### Bugs Fixed During Deployment
@@ -139,22 +139,22 @@ management command. `awx-manage` still works via symlink for backward compatibil
 | 11 | AWX→Forge File Rename | **COMPLETED** |
 | 12 | Centralized CI/CD Pipeline | **COMPLETED** |
 
-### CI/CD Pipeline (COMPLETED 2026-03-17)
+### CI/CD Pipeline (GitHub Actions)
 
-Centralized Jenkinsfile in `forge-deploy` that orchestrates all three repos:
+Each repository has its own GitHub Actions workflow in `.github/workflows/ci.yml`:
 
 ```
-Checkout (backend + frontend) → Lint → Test → Build → Security → Release
+Checkout → Lint → Test → Build → Security → Release
 ```
 
-- Pipeline clones `forge-backend` and `forge-frontend` from Git
-- Runs Python lint (flake8) + frontend lint (tsc) in parallel
-- Runs Python unit tests (pytest) + frontend tests (vitest) in parallel
-- Builds both Docker images (`forge-platform/forge-backend`, `forge-platform/forge-frontend`)
-- Security scans: pip-audit + Trivy container scan
-- Release: pushes versioned images to `ghcr.io/forgeplatform/*` on `main` branch or git tags
+- Workflow runs on push to `main` and on pull requests
+- Lint: ruff (Python) + tsc (TypeScript)
+- Tests: pytest (backend / assistant) + vitest (frontend)
+- Build: docker build with version tag derived from CalVer git tag
+- Security: pip-audit + Trivy container scan
+- Release: pushes versioned images to `ghcr.io/forgeplatform/*` on `main` branch or version tag
 
-Jenkins credentials: `forge-git-creds` (SSH), `forge-harbor-creds` (Harbor)
+No external secrets are required — releases use the built-in `GITHUB_TOKEN` with `packages: write` permission.
 
 ---
 

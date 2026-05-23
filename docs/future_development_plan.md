@@ -572,7 +572,7 @@ i razvijaju platformu.
 6. **Database Schema** — ER dijagram, ključne tabele, relacije
 7. **Docker & Deployment** — objašnjenje svakog kontejnera, docker-compose
    konfiguracija, environment varijable, volumeni
-8. **CI/CD Pipeline** — `.gitlab-ci.yml`, `Jenkinsfile`, build proces, testovi
+8. **CI/CD Pipeline** — `.github/workflows/ci.yml`, build proces, testovi
 9. **Testing** — kako pokrenuti testove, struktura testova, šta koji test pokriva
 10. **Contributing Guide** — coding standardi, git workflow, PR proces,
     commit konvencije

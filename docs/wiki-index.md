@@ -21,7 +21,7 @@ inventories, credentials, and scheduled automation at scale.
 | 05 | [Authentication & RBAC](05-authentication-rbac.md) | Auth methods, role hierarchy, SSO configuration |
 | 06 | [Database Schema](06-database-schema.md) | Key tables, relationships, maintenance |
 | 07 | [Docker & Deployment](07-docker-deployment.md) | Build, deploy, SSL, backup, troubleshooting |
-| 08 | [CI/CD Pipeline](08-ci-cd-pipeline.md) | GitLab CI, Jenkins, release process |
+| 08 | [CI/CD Pipeline](08-ci-cd-pipeline.md) | GitHub Actions, release process |
 | 09 | [Testing Guide](09-testing-guide.md) | How to run tests, what to test, where tests live |
 | 10 | [Contributing Guide](10-contributing-guide.md) | Git workflow, commit conventions, PR process |
 | 11 | [API Reference](11-api-reference.md) | REST API endpoints, authentication, usage examples |

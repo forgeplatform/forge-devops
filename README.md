@@ -80,7 +80,7 @@ forge-devops/
 ├── settings/                # Django production settings
 ├── docs/                    # All documentation
 ├── .env.example             # Environment template
-└── Jenkinsfile              # Jenkins pipeline
+└── .github/workflows/       # GitHub Actions CI/CD
 ```
 
 ## Documentation

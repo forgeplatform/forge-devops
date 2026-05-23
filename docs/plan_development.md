@@ -56,7 +56,7 @@ Document all errors that appear during the 24.6.1 build as these are the first b
 
 ### 0.3 CI/CD Pipeline
 
-Set up GitHub Actions or Jenkins pipeline with:
+Set up the GitHub Actions pipeline with:
 - Build matrix: Python 3.11 / 3.12 / 3.13
 - OS matrix: CentOS Stream 9 / Ubuntu 24.04
 - Automatic unit tests on every push

@@ -1,7 +1,6 @@
 # 08 — CI/CD Pipeline
 
-Forge Platform uses a centralized Jenkins pipeline in `forge-deploy` that orchestrates
-builds across all three repositories: `forge-backend`, `forge-frontend`, and `forge-deploy`.
+Forge Platform uses **GitHub Actions** as the public CI/CD pipeline. Each repository has its own workflow in `.github/workflows/` that runs on push and pull request.
 
 ---
 
@@ -11,42 +10,45 @@ builds across all three repositories: `forge-backend`, `forge-frontend`, and `fo
 ┌──────────┐   ┌────────┐   ┌────────┐   ┌────────┐   ┌──────────┐   ┌─────────┐
 │ Checkout │──►│  Lint  │──►│  Test  │──►│ Build  │──►│ Security │──►│ Release │
 └──────────┘   └────────┘   └────────┘   └────────┘   └──────────┘   └─────────┘
-  clone          flake8       pytest       docker        pip-audit      docker push
-  backend +      tsc          vitest       build         trivy          Harbor
-  frontend
+  GitHub         ruff /        pytest /     docker        pip-audit      docker push
+  Actions        tsc           vitest       build         trivy          ghcr.io/forgeplatform
 ```
+
+Each repo's workflow file: **`.github/workflows/ci.yml`**
 
 ## Pipeline Stages
 
 | Stage | What it does | Fails if... |
 |-------|-------------|-------------|
-| Checkout | Clone `forge-backend` and `forge-frontend` repos (parallel) | Git auth fails |
-| Lint (Python) | `flake8 forge/` in backend | PEP8 errors |
-| Lint (Frontend) | `tsc --noEmit` in frontend | TypeScript type errors |
-| Test (Python) | `pytest forge/main/tests/unit/` | Any test fails |
-| Test (Frontend) | `npx vitest run` | Any test fails |
-| Build Backend | `docker build` → `forge-platform/forge-backend` | Build error |
-| Build Frontend | `docker build` → `forge-platform/forge-frontend` | Build error |
-| Security (pip-audit) | CVE scan on Python deps | Critical CVE |
-| Security (Trivy) | Container image scan (backend + frontend) | CRITICAL CVE |
-| Release | `docker push` to Harbor (`ghcr.io`) | Only on `main` or tags |
+| Checkout | `actions/checkout@v4` clones the repo on the runner | Repo unreachable |
+| Lint (Python) | `ruff check` in backend / assistant | Lint errors |
+| Lint (Frontend) | `tsc --noEmit` + ESLint | TypeScript type errors |
+| Test (Python) | `pytest` against `tests_standalone/` (no DB needed for fast path) | Any test fails |
+| Test (Frontend) | `vitest run` | Any test fails |
+| Build | `docker build` to produce the release image | Build error |
+| Security (pip-audit) | CVE scan on Python dependencies | Critical CVE |
+| Security (Trivy) | Container image scan | CRITICAL CVE |
+| Release | `docker push` to `ghcr.io/forgeplatform/*` | Only on `main` branch or tag push |
 
 ### Stage Conditions
 
 | Stage | When it runs |
 |-------|-------------|
 | Checkout, Lint, Test | Every push / PR |
-| Build, Security | `main`, `devel`, or tag builds |
-| Release | `main` branch or tag builds |
+| Build, Security | `main` branch builds and tag builds |
+| Release | `main` branch builds and tag builds (push to `ghcr.io`) |
 
 ---
 
-## Jenkins Credentials Required
+## GitHub Actions Secrets
 
-| Credential ID | Type | Description |
-|---------------|------|-------------|
-| `forge-git-creds` | SSH Key | Access to GitLab origin remote (internal CI only) |
-| `forge-harbor-creds` | Username/Password | Harbor login (`ghcr.io`) |
+For the release stage, each repo needs the following secret:
+
+| Secret | Description |
+|--------|-------------|
+| `GITHUB_TOKEN` | Provided automatically by GitHub Actions. Used with the built-in `permissions: packages: write` to push to `ghcr.io/forgeplatform/*` |
+
+No third-party credentials are required — everything runs in the GitHub-hosted runner with built-in tokens.
 
 ---
 
@@ -55,9 +57,13 @@ builds across all three repositories: `forge-backend`, `forge-frontend`, and `fo
 | Image | Source | Description |
 |-------|--------|-------------|
 | `ghcr.io/forgeplatform/forge-backend:latest` | `forge-backend/Dockerfile` | Django API + task engine |
-| `ghcr.io/forgeplatform/forge-backend:<version>` | Same | Version-tagged |
+| `ghcr.io/forgeplatform/forge-backend:<version>` | Same | Version-tagged (CalVer) |
 | `ghcr.io/forgeplatform/forge-frontend:latest` | `forge-frontend/Dockerfile` | React SPA + nginx |
 | `ghcr.io/forgeplatform/forge-frontend:<version>` | Same | Version-tagged |
+| `ghcr.io/forgeplatform/forge-assistant:latest` | `forge-assistant/Dockerfile` | FastAPI + Ollama + ChromaDB (preview) |
+| `ghcr.io/forgeplatform/forge-operator:<version>` | `forge-operator/Dockerfile` | Kubernetes operator |
+
+All images are **public** — no pull secret required for `docker pull` or `helm install`.
 
 ---
 
@@ -73,10 +79,11 @@ YYYY.MM.PATCH
 ```
 
 The version is derived from the git tag on `forge-deploy`:
+
 ```bash
-git tag -a v2026.03.0 -m "Forge 2026.03.0"
-git push origin v2026.03.0
-# Jenkins automatically: checkout → lint → test → build → security → push to Harbor
+git tag -a v2026.05.0 -m "Forge 2026.05.0"
+git push origin v2026.05.0
+# GitHub Actions automatically: checkout → lint → test → build → security → push to ghcr.io
 ```
 
 ---
@@ -89,7 +96,7 @@ git push origin v2026.03.0
 cd forge-backend
 
 # Lint
-flake8 forge/ --count --statistics
+ruff check forge/
 
 # Tests
 DJANGO_SETTINGS_MODULE=forge.settings.development \
@@ -121,21 +128,19 @@ docker build -t ghcr.io/forgeplatform/forge-frontend:latest .
 
 ## Release Process
 
-1. Ensure all tests pass on both backend and frontend
+1. Ensure all tests pass on both backend and frontend (GitHub Actions on PR/push must be green)
 2. Update docs and release notes
-3. Commit to `forge-deploy`: `git commit -m "chore: prepare release v2026.04.0"`
-4. Tag: `git tag -a v2026.04.0 -m "Forge 2026.04.0"`
-5. Push tag: `git push origin v2026.04.0`
-6. Jenkins automatically:
-   - Checks out `forge-backend` and `forge-frontend` (same branch/tag)
-   - Runs lint + tests on both
+3. Commit to `forge-deploy`: `git commit -m "chore: prepare release v2026.05.0"`
+4. Tag: `git tag -a v2026.05.0 -m "Forge 2026.05.0"`
+5. Push tag: `git push origin v2026.05.0`
+6. GitHub Actions automatically:
+   - Runs lint + tests
    - Builds Docker images with version tag
    - Scans for vulnerabilities
-   - Pushes `forge-platform/forge-backend:<version>` and `forge-platform/forge-frontend:<version>` to Harbor registry
+   - Pushes `ghcr.io/forgeplatform/forge-backend:<version>` and friends to GHCR
 
 ### Watch out
 
 - **Never release without passing tests.**
-- **Tag format must have `v` prefix:** `v2026.03.0`, not `2026.03.0`.
-- **Harbor login** must be configured in Jenkins credentials (`forge-harbor-creds`) before the first release.
-- **Both repos must have a matching branch** — pipeline checks out the same branch name from all repos.
+- **Tag format must have `v` prefix:** `v2026.05.0`, not `2026.05.0`.
+- **Image visibility** — when a new package is first pushed to `ghcr.io`, GitHub creates it as **private** by default. You must manually flip it to public via the Packages settings (`https://github.com/orgs/forgeplatform/packages`).

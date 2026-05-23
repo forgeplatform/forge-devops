@@ -952,7 +952,7 @@ First release: `2026.XX.0`
 - [x] All tests pass (unit 1237, functional 989, frontend 42, lint 0 errors)
 - [x] Changelog updated (CHANGELOG.md — all 9 phases documented)
 - [x] VERSION file updated (24.6.2 → 2026.03.0, CalVer format)
-- [x] CI/CD pipeline created (.gitlab-ci.yml + Jenkinsfile)
+- [x] CI/CD pipeline created (GitHub Actions: `.github/workflows/ci.yml`)
 - [ ] Git tag created (v2026.03.0)
 - [ ] Container image built and pushed (Harbor registry)
 - [ ] Release notes written
